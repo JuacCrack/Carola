@@ -1,0 +1,41 @@
+<?php
+
+require_once '../ws/nusoap/lib/nusoap.php';
+
+function conectar($url, $funcion, $parametros)
+{
+    $client = new nusoap_client($url, true);
+    $err = $client->getError();
+    if ($err) {
+        echo '<h2>Constructor error</h2><pre>' . $err . '</pre>';
+        echo '<h2>Debug</h2><pre>' . htmlspecialchars($client, ENT_QUOTES) . '</pre>';
+        exit();
+    }
+    $result = $client->call($funcion, $parametros);
+    return $result;
+}
+
+getProveedores();
+
+function getProveedores()
+{
+
+    $params = array(
+        'Userconect' => 'SiteAlmango',
+        'Key' => 'd3d3LmF6bWl0YS5jb20='
+        
+    );
+
+    //$servicios = conectar('http://sis.almango.com.uy/awsoserviciosmasdat.aspx?wsdl', 'Execute', $params);
+    $servicios = conectar('https://sis.almango.com.uy/awsoproveedores.aspx?wsdl', 'Execute', $params);
+    $res = $servicios['Rescode'];
+
+    if ($servicios && $res == 0) {
+        $servicios = $servicios['Sdtproveedores']['Item'];
+    } else if ($servicios && $res > 0) {
+        $servicios = $servicios['Resmessage'];
+    }
+
+    return $servicios;
+}
+?>

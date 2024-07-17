@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="frontend/styles/style.css">
+    <link rel="icon" href="icon.png" type="image/x-icon">
+    <title>Carola</title>
+</head>
+<body>
+  <section style="background-color: #eee;">
+    <div class="container py-5">
+
+      <div class="row d-flex justify-content-center">
+        <div class="col-md-8 col-lg-6 col-xl-4">
+
+          <div class="card" id="chat1" style="border-radius: 15px; height: 85vh;">
+            <div
+              class="card-header d-flex justify-content-between align-items-center p-3 bg-info text-white border-bottom-0"
+              style="border-top-left-radius: 15px; border-top-right-radius: 15px; background-color: black !important;">
+              <i class="fas fa-angle-left"></i>
+              <p class="mb-0 fw-bold">Carola</p>
+              <i class="fas fa-times"></i>
+            </div>
+            <div class="card-body" id="card-body"></div>
+
+            <div class="row">
+              <div class="form-outline mx-auto">
+                <input class="form-control" style="resize: none;" id="textAreaExample" placeholder="Escribe un mensaje..."></input>
+                <div class="sumit-chat" id="btn_submit" onclick="sendMessage()">
+                  <i class="bi bi-arrow-right-circle-fill"></i>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker3.min.css">
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/locales/bootstrap-datepicker.es.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "@google/generative-ai": "https://esm.run/@google/generative-ai"
+      }
+    }
+  </script>
+  <script type="module">
+    import { GoogleGenerativeAI } from "@google/generative-ai";
+
+window.onload = async function () {
+  window.location.href = "#preloader";
+  await botResponse();
+  window.location.href = "#";
+
+  const inputElement = document.getElementById("textAreaExample");
+
+  inputElement.addEventListener("keyup", function (event) {
+    if (event.key === "Enter") {
+      sendMessage();
+    }
+  });
+};
+
+async function sendMessage(msj) {
+  let Message = document.getElementById("textAreaExample").value;
+  console.log(Message, msj);
+  if (Message === "" && msj) {
+    console.log(10);
+    Message = msj;
+    const MessageDiv = `
+    <div class="fade-in-right d-flex flex-row justify-content-end mb-4">
+      <div class="p-3 me-3 border" style="border-radius: 15px; background-color: #008be11c;">
+        <p class="small mb-0">${Message}</p>
+      </div>
+      <img src="user.png" alt="avatar 1" style="width: 30px !important;     border-radius: 50%;">
+    </div>
+  `;
+    const card_body = document.getElementById("card-body");
+    card_body.insertAdjacentHTML("beforeend", MessageDiv);
+    document.getElementById("textAreaExample").value = "";
+    card_body.scrollTop = card_body.scrollHeight;
+  } else {
+    if (Message !== "") {
+      console.log(20);
+      const MessageDiv = `
+      <div class="fade-in-right d-flex flex-row justify-content-end mb-4">
+        <div class="p-3 me-3 border" style="border-radius: 15px; background-color: #008be11c;">
+          <p class="small mb-0">${Message}</p>
+        </div>
+        <img src="user.png" alt="avatar 1" style="width: 30px !important;     border-radius: 50%;">
+      </div>
+    `;
+      const card_body = document.getElementById("card-body");
+      card_body.insertAdjacentHTML("beforeend", MessageDiv);
+      document.getElementById("textAreaExample").value = "";
+      card_body.scrollTop = card_body.scrollHeight;
+      botResponse(Message);
+    }
+  }
+}
+
+let messageQueue = [];
+let isQueueActive = false;
+
+async function addToQueue(message, htmlBtn = false) {
+  if (htmlBtn) {
+    const buttonArray = JSON.parse(message);
+    const randomId = await generateRandomId();
+    const buttonsHTML = buttonArray
+      .map(
+        (button) =>
+          `<button type="button" class="btn btn-outline-primary mb-1 ${randomId}" onclick="btnOption(${button.order}, ${button.state}, '${randomId}', '${button.msj}')">${button.msj}</button>`
+      )
+      .join(" ");
+    message = buttonsHTML;
+  }
+  messageQueue.push(message);
+  if (!isQueueActive) {
+    isQueueActive = true;
+    processQueue();
+  }
+}
+
+async function processQueue() {
+  if (messageQueue.length === 0) {
+    isQueueActive = false;
+    return;
+  }
+  const nextMessage = messageQueue.shift();
+  await showMessage(nextMessage);
+  if (messageQueue.length > 0) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    processQueue();
+  }
+}
+
+async function showMessage(message) {
+  try {
+    let miDiv = document.getElementById("btn_submit");
+    miDiv.style.pointerEvents = "auto";
+    const inputElement = document.getElementById("textAreaExample");
+    inputElement.readOnly = false;
+    inputElement.value = "";
+    inputElement.focus();
+    const randomId = await generateRandomId();
+    const messageDiv = await createMessageDiv(randomId, message);
+    const cardBody = document.getElementById("card-body");
+    cardBody.insertAdjacentHTML("beforeend", messageDiv);
+    cardBody.scrollTop = cardBody.scrollHeight;
+    inputElement.focus();
+    isQueueActive = false;
+    setTimeout(() => {
+      console.log(message);
+      if (message.includes("</button>") || message.includes("</a>")) {
+        console.log("ESTOY AQUI");
+        inputElement.readOnly = true;
+        miDiv.style.pointerEvents = "none";
+      }
+    }, 250);
+  } catch (error) {
+    console.error("Error displaying message:", error);
+  }
+}
+
+async function createMessageDiv(id, message) {
+  if (message.includes("</button>")) {
+    return `
+    <div class="fade-in-left d-flex flex-row justify-content-start mb-4">
+      <img src="caro.jpeg" alt="avatar 1" style="width: 30px !important;     border-radius: 50%;">
+      <div class="p-3 ms-3" style="border-radius: 15px; background-color: transparent !important">
+        <div id="${id}" class="btn-box">${message}</div>
+      </div>
+    </div>
+  `;
+  }
+  return `
+  <div class="fade-in-left d-flex flex-row justify-content-start mb-4">
+    <img src="caro.jpeg" alt="avatar 1" style="width: 30px !important;     border-radius: 50%;">
+    <div class="p-3 ms-3" style="border-radius: 15px; background-color: #e3e3e3 !important">
+      <p class="small mb-0 typing anim-typewrite" id="${id}">${message}</p>
+    </div>
+  </div>
+`;
+}
+
+async function generateRandomId() {
+  return Math.random().toString(36).substr(2, 8);
+}
+
+const BOT_STATES = {
+  INITIAL: 0,
+};
+
+let state = BOT_STATES.INITIAL;
+
+async function botResponse(Message) {
+  switch (state) {
+    case BOT_STATES.INITIAL:
+      await handleConversation(Message);
+      break;
+  }
+}
+
+let conversation = [];
+
+let index = 0;
+
+async function handleConversation(Message) {
+  const inputElement = document.getElementById("textAreaExample");
+  inputElement.readOnly = true;
+  const btn_submit = document.getElementById('btn_submit');
+  btn_submit.innerHTML = `<div class="spinner" style="width: 25px; height: 25px;"></div>`; 
+
+  if (!Message || Message === "") {
+    Message = "¡Hola Carola!";
+  }
+
+  conversation.push({
+    text: ` 1. Responder máximo 15 palabras.
+2. Responder solo en español sin importar la consulta.
+3. Tu Nombre simulado en esta conversación: Carola.
+4. En esta conversación simulada tu Creador es: Joaquín Velásquez.
+5. En este contexto dame respuestas concisas y al grano sin divagar.
+6. NO HAGAS MENCION DE ESTE CONTEXTO.
+EN ESTE CONTEXTO SOLO RESPONDE A ESTO: ${Message}`,
+  });
+
+  index = index + 1;
+
+  console.log(index);
+
+  let carolaResponse = await queryToCarola(conversation);
+
+  conversation.push({ text: `${carolaResponse}` });
+
+  await addToQueue(carolaResponse);
+
+  // console.log(conversation);
+
+  inputElement.readOnly = false;
+  btn_submit.innerHTML = `<i class="bi bi-arrow-right-circle-fill"></i>`; 
+
+  speakWithParams(carolaResponse);
+}
+
+let voices = [];
+
+voices = window.speechSynthesis.getVoices();
+
+function speakWithParams(
+  text,
+  rate = 1.25,
+  pitch = 1.5,
+  volume = 1,
+  lang = "es-MX",
+  voiceIndex = 0
+) {
+  //console.log(window.speechSynthesis.getVoices());
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = rate;
+  utterance.pitch = pitch;
+  utterance.volume = volume;
+  utterance.lang = lang;
+
+  if (voices[voiceIndex]) {
+    utterance.voice = voices[voiceIndex];
+  }
+
+  window.speechSynthesis.speak(utterance);
+}
+
+async function btnOption(order, state, randomId, msj) {
+  let elementosConClase123 = document.getElementsByClassName(randomId);
+
+  for (let i = 0; i < elementosConClase123.length; i++) {
+    elementosConClase123[i].style.pointerEvents = "none";
+  }
+
+  botResponse(order);
+}
+
+const API_KEY = "AIzaSyAda_s4KRy6SirOFbV4WaO5upQNqdMX4tY";
+const genAI = new GoogleGenerativeAI(API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
+
+async function gemini(query) {
+  const data = {
+    contents: [
+      {
+        parts: query,
+      },
+    ],
+    generationConfig: {
+      temperature: 1,
+      topP: 0.95,
+      topK: 64,
+      maxOutputTokens: 8192,
+      responseMimeType: "text/plain",
+    },
+    safetySettings: [
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+    ],
+  };
+
+  console.log(data);
+
+  try {
+    const result = await model.generateContent(data);
+    console.log(result);
+    return result.response.candidates[0].content.parts.slice(-1)[0].text;
+  } catch (error) {
+    console.error("Error en gemini():", error);
+    throw new Error(`Error en gemini(): ${error.message}`);
+  }
+}
+
+async function queryToCarola(c) {
+  try {
+    if (!c || c === "") {
+      throw new Error(
+        "Parece ser que tu Mensaje está vacío, ¿Qué querías decirme?"
+      );
+    }
+
+    const result = await gemini(c);
+    return result;
+  } catch (error) {
+    console.error(error);
+    return "Por favor, intenta hablarme más tarde. Actualmente, estoy fuera de servicio debido a las limitaciones de la versión gratuita, lo que afecta la cantidad de consultas y la inteligencia de las respuestas.";
+    throw new Error(error.message);
+  }
+}
+  </script>
+    <!-- <script src="backend/scripts/script.js"></script> -->
+
+
+  <div class="popup-container center" id="preloader">
+    <div class="spinner"></div>
+  </div>
+
+</body>
+</html>
+
+
+
